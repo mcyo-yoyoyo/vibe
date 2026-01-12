@@ -87,13 +87,13 @@
     <div id="ai-modal" class="fixed inset-0 z-50 hidden backdrop-blur-cyber flex items-center justify-center p-4">
         <div class="w-full max-w-2xl bg-black border border-[#00f3ff] rounded-none flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center p-3 border-b border-cyan-900 bg-gray-900/50">
-                <h3 class="text-[#00f3ff] font-bold text-xs tracking-widest">GEMINI NEURAL LINK</h3>
+                <h3 class="text-[#00f3ff] font-bold text-xs tracking-widest">DEEPSEEK NEURAL LINK</h3>
                 <button onclick="closeModal()" class="text-cyan-500 hover:text-white font-mono text-xl">_EXIT</button>
             </div>
             <div class="p-6 overflow-y-auto flex-1">
                 <div id="api-key-container" class="mb-6 hidden">
                     <div class="bg-red-900/20 border border-red-900 p-3 mb-4 text-[10px] text-red-400">ALERT: NO ACTIVE LINK DETECTED. ENTER API CREDENTIALS.</div>
-                    <input type="password" id="api-key-input" class="w-full bg-black border border-gray-800 text-cyan-500 p-3 text-sm font-mono focus:border-cyan-500 outline-none" placeholder="ENTER GEMINI API KEY...">
+                    <input type="password" id="api-key-input" class="w-full bg-black border border-gray-800 text-cyan-500 p-3 text-sm font-mono focus:border-cyan-500 outline-none" placeholder="ENTER DEEPSEEK API KEY...">
                 </div>
                 <div id="input-area">
                     <textarea id="report-input" class="w-full h-48 bg-black border border-gray-800 text-gray-400 p-4 text-sm font-mono focus:border-[#39ff14] outline-none resize-none mb-4" placeholder="PASTE 3C INDUSTRY REPORT CONTENT HERE..."></textarea>
@@ -114,7 +114,8 @@
     <script>
         const TARGET_DATE = new Date("2031-07-21T00:00:00").getTime();
         const START_DATE_REF = new Date("2024-01-01T00:00:00").getTime();
-        let apiKey = localStorage.getItem('gemini_api_key') || '';
+        // 更改为 deepseek_api_key
+        let apiKey = localStorage.getItem('deepseek_api_key') || '';
 
         const els = {
             clock: document.getElementById('clock'),
@@ -181,7 +182,8 @@
             if (!apiKey) {
                 apiKey = els.apiKeyInput.value.trim();
                 if (apiKey) {
-                    localStorage.setItem('gemini_api_key', apiKey);
+                    // 存储为 deepseek key
+                    localStorage.setItem('deepseek_api_key', apiKey);
                     els.apiKeyContainer.classList.add('hidden');
                 } else { return alert("KEY REQUIRED"); }
             }
@@ -192,7 +194,6 @@
             els.inputArea.classList.add('hidden');
             els.loadingState.classList.remove('hidden');
 
-            // 强化后的 System Prompt，固化了 2026 行业背景
             const sysPrompt = `你是一名拥有20年3C行业（手机、PC、平板、穿戴、音频）和汽车行业（新能源汽车）以及家电行业（空调、冰箱、洗衣机、电视）多行业经验的顶级商业分析师。
             当前时间点：2026年CES展后。
             核心背景储备：
@@ -210,25 +211,32 @@
             - 【转型动作】：用户明天应该立刻开始研究哪个具体的接口或场景？`;
 
             try {
-                // 使用非流式 API 结构
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                // 切换为 DeepSeek API 结构 (OpenAI 兼容模式)
+                const res = await fetch(`https://api.deepseek.com/chat/completions`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'Authorization': `Bearer ${apiKey}` 
+                    },
                     body: JSON.stringify({
-                        contents: [{
-                            parts: [{ text: sysPrompt + "\n\n用户提供的待分析内容：\n" + text }]
-                        }]
+                        model: "deepseek-chat", // 使用 deepseek-chat 模型
+                        messages: [
+                            { role: "system", content: sysPrompt },
+                            { role: "user", content: `用户提供的待分析内容：\n${text}` }
+                        ],
+                        stream: false
                     })
                 });
                 
                 const data = await res.json();
-                const output = data.candidates?.[0]?.content?.parts?.[0]?.text || "分析失败，请检查 API Key 或网络状况。";
+                // DeepSeek 返回格式解析 (OpenAI standard)
+                const output = data.choices?.[0]?.message?.content || "分析失败，请检查 API Key 或网络状况。";
                 
                 els.loadingState.classList.add('hidden');
                 els.resultArea.classList.remove('hidden');
                 els.aiOutput.innerHTML = marked.parse(output);
             } catch (e) {
-                alert("LINK ERROR: " + e.message);
+                alert("DEEPSEEK LINK ERROR: " + e.message);
                 closeModal();
             }
         }
